@@ -1,5 +1,4 @@
-export interface IPageNumber {
-  beg: number
-  end: number
-  action: 'next' | 'prev'
+export interface IPageData {
+  current: number
+  lastAction: 'next' | 'prev'
 }
