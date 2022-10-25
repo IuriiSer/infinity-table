@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import { BookSearch } from './components/BookSearch/BookSearch'
 import BooksList from './components/BooksList/BooksList'
 import { Preloader } from './components/Preloader/Preloader'
@@ -9,7 +9,7 @@ const App: React.FC = () => {
   const [query, setQuery] = useState<string>('')
   const [pageNumber, setPageNumber] = useState<IPageNumber>({ beg: 1, end: 1, action: 'next' })
 
-  const { booksCollection, loading, hasMore, error } = useBooksSearch({ query, pageNumber })
+  const { booksCollection, loading, hasMore } = useBooksSearch({ query, pageNumber })
 
   const setQueryHandler = (newQuery: string): void => {
     setPageNumber({ beg: 1, end: 1, action: 'next' })
@@ -27,10 +27,6 @@ const App: React.FC = () => {
       }
     })
     if (node != null) observer.current.observe(node)
-  }, [loading])
-
-  useEffect(() => {
-    if (error != null) console.log('file: App.tsx ~ line 14 ~ error', error)
   }, [loading, hasMore])
 
   return (
