@@ -5,10 +5,6 @@ export enum InsertOrder {
   BEFORE = 'BEFORE'
 }
 
-interface TRestrictions<T> {
-  length: number
-  concat: (data: T) => T
-}
 interface IAddDataToStorage<T> {
   id: number
   data: T
@@ -20,15 +16,16 @@ interface RIUseLimitedStorage<T> {
   eraseStorage: () => void
 }
 
-export const useLimitedLengthStorage = <T extends TRestrictions<T>>(initVal: T, lengthLimit: number): RIUseLimitedStorage<T> => {
+export const useLimitedLengthStorage = <T>(lengthLimit: number): RIUseLimitedStorage<T> => {
   const [storage, setStorage] = useState<Map<number, T>>(new Map())
 
   const addDataToStorage = ({ id, data, insertOrder }: IAddDataToStorage<T>): void => {
-    if (storage.size < lengthLimit) { storage.set(id, data); setStorage(storage); return }
+    if (storage.size + 1 <= lengthLimit) { storage.set(id, data); setStorage(storage); return }
 
     const idToRm = insertOrder === InsertOrder.AFTER
       ? id - lengthLimit
       : id + lengthLimit
+
     storage.delete(idToRm)
     storage.set(id, data)
     setStorage(storage)
