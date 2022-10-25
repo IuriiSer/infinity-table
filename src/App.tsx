@@ -1,18 +1,20 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { BookSearch } from './components/BookSearch/BookSearch'
-import BooksList from './components/BooksList/BooksList'
+import { BookSearch } from './components/Books/BookSearch/BookSearch'
+import { BooksStorageDrawer } from './components/Books/BooksStorage/BooksStorageDrawer'
 import { Preloader } from './components/Preloader/Preloader'
 import { useBooksSearch } from './hooks/useBooksSearch'
-import { IPageNumber } from './models/PageNumber/PageNumber'
+import { IPageData } from './models/PageNumber/PageNumber'
+
+const PAGE_LIMITATION = Number(process.env.REACT_APP_PAGE_LIMITATION)
 
 const App: React.FC = () => {
   const [query, setQuery] = useState<string>('')
-  const [pageNumber, setPageNumber] = useState<IPageNumber>({ beg: 1, end: 1, action: 'next' })
+  const [pageData, setPageNumber] = useState<IPageData>({ current: 1, lastAction: 'next' })
 
-  const { booksCollection, loading, hasMore } = useBooksSearch({ query, pageNumber })
+  const { booksStorage, loading, hasMore } = useBooksSearch({ query, pageData })
 
   const setQueryHandler = (newQuery: string): void => {
-    setPageNumber({ beg: 1, end: 1, action: 'next' })
+    setPageNumber({ current: 1, lastAction: 'next' })
     setQuery(newQuery)
   }
 
@@ -22,22 +24,24 @@ const App: React.FC = () => {
     if (observer.current != null) observer.current.disconnect()
     observer.current = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && hasMore) {
-        setPageNumber((prev) => ({ ...prev, end: prev.end + 1 }))
-        console.log('visible')
+        setPageNumber((prev) => ({ current: prev.current + 1, lastAction: 'next' }))
       }
     })
     if (node != null) observer.current.observe(node)
   }, [loading, hasMore])
 
+  const getFirstPageInBookStorage = useCallback(() => {
+    if (booksStorage.size < PAGE_LIMITATION) return 1
+    if (loading) return pageData.current - PAGE_LIMITATION
+    else return pageData.current - PAGE_LIMITATION + 1
+  }, [loading, booksStorage])
+
   return (
     <div className='App'>
       <BookSearch setQueryHandler={setQueryHandler} />
-      <>
-        {booksCollection.map((booksElement) => (
-          <BooksList key={booksElement.page} lastBookCardRef={lastBookCardRef} booksData={booksElement.booksData} />
-        ))}
-      </>
-      <Preloader loading={loading} />
+      {pageData.lastAction === 'prev' && <Preloader loading={loading} />}
+      <BooksStorageDrawer booksStorage={booksStorage} lastBookCardRef={lastBookCardRef} getFirstPageInBookStorage={getFirstPageInBookStorage}/>
+      {pageData.lastAction === 'next' && <Preloader loading={loading} />}
     </div>
   )
 }

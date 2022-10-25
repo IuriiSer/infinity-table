@@ -9,4 +9,4 @@ export interface BookData {
 
 export type BooksData = BookData[]
 
-export type BooksCollection = Array<{ booksData: BooksData, page: number }>
+export type BooksStorage = Map<number, BooksData>

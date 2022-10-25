@@ -1,17 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState, useRef } from 'react'
 import axios, { Method, Canceler } from 'axios'
-import { BooksData, BooksCollection } from '../models/BookData/BookData'
-import { IPageNumber } from '../models/PageNumber/PageNumber'
+import { BooksData, BooksStorage } from '../models/BookData/BookData'
+import { IPageData } from '../models/PageNumber/PageNumber'
+import { InsertOrder, useLimitedLengthStorage } from './useLimitedLengthStorage'
 
-interface IuseBooksSearch {
+const PAGE_LIMITATION = Number(process.env.REACT_APP_PAGE_LIMITATION)
+
+interface IUseBooksSearch {
   query: string
-  pageNumber: IPageNumber
+  pageData: IPageData
 
 }
 
 interface RIuseBooksSearch {
-  booksCollection: BooksCollection
+  booksStorage: BooksStorage
+  // booksCollection: BooksCollection
   hasMore: boolean
   loading: Loading
   error: FetchError
@@ -20,12 +24,13 @@ interface RIuseBooksSearch {
 type FetchError = Error | null
 type Loading = boolean
 
-export const useBooksSearch = ({ query, pageNumber }: IuseBooksSearch): RIuseBooksSearch => {
-  const [booksCollection, setBooksCollection] = useState<BooksCollection>([])
+export const useBooksSearch = ({ query, pageData }: IUseBooksSearch): RIuseBooksSearch => {
+  const { storage, addDataToStorage, eraseStorage } = useLimitedLengthStorage<BooksData>(PAGE_LIMITATION)
   const [error, setError] = useState<FetchError>(null)
   const [loading, setLoading] = useState<Loading>(false)
   const [hasMore, setHasMore] = useState<boolean>(false)
   const lastQuery = useRef<string>('')
+  let collectionSize: number = 0
 
   useEffect(() => {
     let cancel: null | Canceler = null
@@ -33,22 +38,22 @@ export const useBooksSearch = ({ query, pageNumber }: IuseBooksSearch): RIuseBoo
       try {
         if (error == null) setError(null)
         if (query === '') return
-        if (query !== lastQuery.current) { setBooksCollection([]); lastQuery.current = query }
+        if (query !== lastQuery.current) { eraseStorage(); lastQuery.current = query; collectionSize = 0 }
         setLoading(true)
-        const page = pageNumber.action === 'next' ? pageNumber.end : pageNumber.beg
         const res = await axios({
           method: 'GET',
           url: 'http://openlibrary.org/search.json',
-          params: { q: query, page },
+          params: { q: query, page: pageData.current },
           cancelToken: new axios.CancelToken(c => { cancel = c })
         })
-        setLoading(false)
 
+        setLoading(false)
         if (res.status === 200) {
           const { docs }: { docs: BooksData } = res.data
-          const totalBooks = booksCollection.reduce((totalBooks, booksElement) => totalBooks + booksElement.booksData.length, 0)
-          setHasMore(totalBooks + docs.length <= res.data.numFound)
-          setBooksCollection((prev) => prev.concat({ booksData: docs, page }))
+          if (collectionSize === 0) collectionSize = docs.length
+          const totalBooksInStorage = storage.size * collectionSize + docs.length
+          setHasMore(totalBooksInStorage <= res.data.numFound)
+          addDataToStorage({ id: pageData.current, data: docs, insertOrder: InsertOrder.AFTER })
         }
       } catch (err) {
         if (err instanceof axios.AxiosError) return
@@ -60,7 +65,7 @@ export const useBooksSearch = ({ query, pageNumber }: IuseBooksSearch): RIuseBoo
       }
     })()
     return () => { if (cancel != null) cancel() }
-  }, [query, pageNumber])
+  }, [query, pageData])
 
-  return { booksCollection, hasMore, loading, error }
+  return { booksStorage: storage, hasMore, loading, error }
 }
